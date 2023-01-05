@@ -1,3 +1,4 @@
+use anyhow::Result;
 use turbo_tasks::{primitives::StringVc, Value};
 use turbo_tasks_env::ProcessEnvVc;
 use turbo_tasks_fs::FileSystemPathVc;
@@ -14,17 +15,31 @@ use turbopack_node::execution_context::ExecutionContextVc;
 
 use crate::{
     next_build::get_postcss_package_mapping,
-    next_client::context::add_next_font_transform,
     next_config::NextConfigVc,
     next_import_map::{get_next_build_import_map, get_next_server_import_map},
+    next_shared::{context::SharedContextType, transforms::get_next_transforms_rules},
 };
 
 #[turbo_tasks::value(serialization = "auto_for_input")]
 #[derive(Debug, Copy, Clone, Hash, PartialOrd, Ord)]
+pub enum PageSsrType {
+    Ssr,
+    SsrData,
+}
+
+#[turbo_tasks::value(serialization = "auto_for_input")]
+#[derive(Debug, Copy, Clone, Hash, PartialOrd, Ord)]
 pub enum ServerContextType {
-    Pages { pages_dir: FileSystemPathVc },
-    AppSSR { app_dir: FileSystemPathVc },
-    AppRSC { app_dir: FileSystemPathVc },
+    Pages {
+        pages_dir: FileSystemPathVc,
+        ssr_type: PageSsrType,
+    },
+    AppSSR {
+        app_dir: FileSystemPathVc,
+    },
+    AppRSC {
+        app_dir: FileSystemPathVc,
+    },
 }
 
 #[turbo_tasks::function]
@@ -98,11 +113,14 @@ pub fn get_server_environment(
 }
 
 #[turbo_tasks::function]
-pub fn get_server_module_options_context(
+pub async fn get_server_module_options_context(
     project_path: FileSystemPathVc,
     execution_context: ExecutionContextVc,
     ty: Value<ServerContextType>,
-) -> ModuleOptionsContextVc {
+) -> Result<ModuleOptionsContextVc> {
+    let custom_rules =
+        get_next_transforms_rules(SharedContextType::Server(ty.into_value())).await?;
+
     let module_options_context = match ty.into_value() {
         ServerContextType::Pages { .. } => {
             let module_options_context = ModuleOptionsContext {
@@ -121,6 +139,7 @@ pub fn get_server_module_options_context(
                     ContextCondition::InDirectory("node_modules".to_string()),
                     module_options_context.clone().cell(),
                 )],
+                custom_rules,
                 ..module_options_context
             }
         }
@@ -141,6 +160,7 @@ pub fn get_server_module_options_context(
                     ContextCondition::InDirectory("node_modules".to_string()),
                     module_options_context.clone().cell(),
                 )],
+                custom_rules,
                 ..module_options_context
             }
         }
@@ -163,13 +183,14 @@ pub fn get_server_module_options_context(
                     ContextCondition::InDirectory("node_modules".to_string()),
                     module_options_context.clone().cell(),
                 )],
+                custom_rules,
                 ..module_options_context
             }
         }
     }
     .cell();
 
-    add_next_font_transform(module_options_context)
+    Ok(module_options_context)
 }
 
 #[turbo_tasks::function]
