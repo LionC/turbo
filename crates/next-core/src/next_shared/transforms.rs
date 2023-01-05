@@ -13,6 +13,7 @@ use crate::{
     next_server::context::{PageSsrType, ServerContextType},
 };
 
+/// Returns a list of module rules which apply Next.js-specific transforms.
 pub async fn get_next_transforms_rules(context_ty: SharedContextType) -> Result<Vec<ModuleRule>> {
     let mut rules = vec![];
 
