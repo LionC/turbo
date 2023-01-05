@@ -35,7 +35,7 @@ Examples of **correct** code for this rule:
 
 ```json
 {
-  "globalDependencies": ["$MY_API_TOKEN"]
+  "globalEnv": ["MY_API_TOKEN"]
   "pipeline": {
     "build": {
       "dependsOn": ["^build"],
@@ -55,8 +55,9 @@ Examples of **correct** code for this rule:
 {
   "pipeline": {
     "build": {
-      "dependsOn": ["^build", "$MY_API_TOKEN"],
-      "outputs": ["dist/**", ".next/**"]
+      "dependsOn": ["^build"],
+      "outputs": ["dist/**", ".next/**"],
+      "env": ["MY_API_TOKEN"]
     },
     "lint": {
       "outputs": []
